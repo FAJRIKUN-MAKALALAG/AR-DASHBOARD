@@ -31,7 +31,6 @@ export const PengaturanView: React.FC = () => {
     loginWithMicrosoft,
     logoutMicrosoft,
     setIsAuthModalOpen,
-    logout,
     clearAllData,
     fetchFromSharePointUrl,
     isSyncing,

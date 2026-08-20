@@ -12,18 +12,7 @@ import {
 import { parseExcelFile } from '../utils/excelHelper';
 import { EMPTY_AOC_FOLLOWUPS, EMPTY_USER, STORAGE_KEYS } from '../constants/dashboard';
 import { 
-  auth, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signInWithPopup, 
-  signInWithRedirect,
-  getRedirectResult,
-  googleProvider, 
-  signOut as firebaseSignOut, 
-  onAuthStateChanged,
-  syncUserProfile,
-  FirebaseUser,
-  updateProfile
+  FirebaseUser
 } from '../lib/firebase';
 
 interface DashboardMetrics {
@@ -82,11 +71,7 @@ interface DashboardContextType {
   setUser: React.Dispatch<React.SetStateAction<UserAccount>>;
   firebaseUser: FirebaseUser | null;
   isAuthLoading: boolean;
-  loginWithEmail: (email: string, pass: string) => Promise<{ success: boolean; message: string }>;
-  registerWithEmail: (email: string, pass: string, name: string, role?: string, dept?: string, division?: PengelolaanType) => Promise<{ success: boolean; message: string }>;
-  loginWithGooglePopup: (googleEmail?: string, googleName?: string, chosenDivision?: PengelolaanType) => Promise<{ success: boolean; message: string }>;
   updateUserProfile: (updates: Partial<UserAccount>) => Promise<{ success: boolean; message: string }>;
-  logout: () => Promise<void>;
   
   // Microsoft SSO Auth
   loginWithMicrosoft: () => Promise<void>;
@@ -158,9 +143,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   // Firebase User & App state
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
+  const [firebaseUser] = useState<FirebaseUser | null>(null);
+  const [isAuthLoading] = useState<boolean>(false);
 
   // User state
   const [user, setUser] = useState<UserAccount>(() => {
@@ -169,15 +153,15 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       try { 
         const parsed = JSON.parse(saved);
         return {
-          name: parsed.name || '',
-          email: parsed.email || '',
-          role: parsed.role || '',
-          department: parsed.department || '',
-          division: parsed.division,
-          avatarUrl: parsed.avatarUrl || '',
-          isLoggedIn: Boolean(parsed.isLoggedIn),
+          name: parsed.name || 'User Developer',
+          email: parsed.email || 'dev@telkom.co.id',
+          role: parsed.role || 'Finance AR Specialist',
+          department: parsed.department || 'Divisi Finance & Collection Enterprise Telkom',
+          division: parsed.division || 'ERS',
+          avatarUrl: parsed.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=fajri`,
+          isLoggedIn: true,
           jwtToken: parsed.jwtToken,
-          authProvider: parsed.authProvider,
+          authProvider: parsed.authProvider || 'demo',
           microsoftConnected: Boolean(parsed.microsoftConnected),
           microsoftAccessToken: parsed.microsoftAccessToken,
           microsoftTenant: parsed.microsoftTenant,
@@ -187,43 +171,23 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     const savedToken = localStorage.getItem(STORAGE_KEYS.microsoftToken) || '';
     return {
-      ...EMPTY_USER,
+      name: 'User Developer',
+      email: 'dev@telkom.co.id',
+      role: 'Finance AR Specialist',
+      department: 'Divisi Finance & Collection Enterprise Telkom',
+      division: 'ERS',
+      avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=fajri`,
+      isLoggedIn: true,
+      authProvider: 'demo',
       microsoftConnected: Boolean(savedToken),
-      microsoftAccessToken: savedToken
+      microsoftAccessToken: savedToken,
+      microsoftAccountEmail: ''
     };
   });
 
   const [isAuthenticatingMicrosoft, setIsAuthenticatingMicrosoft] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
-  const [pendingGoogleRedirect, setPendingGoogleRedirect] = useState<boolean>(false);
-
-  useEffect(() => {
-    getRedirectResult(auth)
-      .then(async (result) => {
-        if (result?.user) {
-          const fbUser = result.user;
-          await syncUserProfile(fbUser);
-          setUser(prev => ({
-            ...prev,
-            uid: fbUser.uid,
-            name: fbUser.displayName || fbUser.email?.split('@')[0] || prev.name || 'User',
-            email: fbUser.email || prev.email,
-            avatarUrl: fbUser.photoURL || prev.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${fbUser.uid}`,
-            isLoggedIn: true,
-            authProvider: 'firebase'
-          }));
-          setIsLoginModalOpen(false);
-        }
-      })
-      .catch(err => {
-        if (err?.code !== 'auth/no-auth-event') {
-          console.warn('[Firebase Redirect Result]:', err);
-        }
-      })
-      .finally(() => {
-        setPendingGoogleRedirect(false);
-      });
-  }, []);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
 
   // SharePoint Real-Time Live Config
   const [sharePointConfig, setSharePointConfig] = useState<SharePointConfig>(() => {
@@ -270,31 +234,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isAddFollowUpOpen, setIsAddFollowUpOpen] = useState<boolean>(false);
   const [isSharePointModalOpen, setIsSharePointModalOpen] = useState<boolean>(false);
 
-  // Listen to Firebase Auth state
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      setFirebaseUser(fbUser);
-      setIsAuthLoading(false);
-
-      if (fbUser) {
-        // Sync profile to Firestore
-        await syncUserProfile(fbUser);
-        
-        setUser(prev => ({
-          ...prev,
-          uid: fbUser.uid,
-          name: fbUser.displayName || fbUser.email?.split('@')[0] || prev.name || 'User Tester',
-          email: fbUser.email || prev.email,
-          avatarUrl: fbUser.photoURL || prev.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${fbUser.uid}`,
-          isLoggedIn: true,
-          authProvider: 'firebase'
-        }));
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
-
   // Save changes to localStorage
   useEffect(() => {
       localStorage.setItem(STORAGE_KEYS.openItems, JSON.stringify(openItems));
@@ -335,127 +274,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setAocFollowUps(updatedFollowUps);
   }, []);
 
-  // JWT & Firebase Email & Password Sign In
-  const loginWithEmail = async (email: string, pass: string): Promise<{ success: boolean; message: string }> => {
-    try {
-      const cred = await signInWithEmailAndPassword(auth, email.trim(), pass);
-      await syncUserProfile(cred.user);
-
-      const userEmail = cred.user.email?.toLowerCase() || email.trim().toLowerCase();
-      const storedUser = localStorage.getItem(`telkom_data_${userEmail}_open_items`);
-      const storedProfile = localStorage.getItem(`telkom_data_${userEmail}_sharepoint_link`);
-
-      if (storedUser) {
-        try {
-          const parsed = JSON.parse(storedUser);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setOpenItems(parsed);
-            syncAocFromOpenItems(parsed);
-          }
-        } catch (e) {}
-      }
-
-      if (storedProfile) {
-        setSharePointConfig(prev => ({ ...prev, shareLink: storedProfile }));
-      }
-
-      const nextUser = {
-        ...EMPTY_USER,
-        uid: cred.user.uid,
-        name: cred.user.displayName || cred.user.email?.split('@')[0] || 'User',
-        email: userEmail,
-        role: 'Finance AR Specialist',
-        department: 'Divisi Finance & Collection Enterprise Telkom',
-        division: 'ERS' as PengelolaanType,
-        avatarUrl: cred.user.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${cred.user.uid}`,
-        isLoggedIn: true,
-        authProvider: 'firebase' as const,
-        microsoftConnected: Boolean(localStorage.getItem(STORAGE_KEYS.microsoftToken)),
-        microsoftAccessToken: localStorage.getItem(STORAGE_KEYS.microsoftToken) || undefined
-      };
-
-      setUser(nextUser);
-      setPengelolaan(nextUser.division || 'ERS');
-      setIsLoginModalOpen(false);
-      return { success: true, message: `Selamat datang ${nextUser.name}!` };
-    } catch (err: any) {
-      return { success: false, message: err.message || 'Terjadi gangguan saat login.' };
-    }
-  };
-
-  // JWT & Firebase Email Registration
-  const registerWithEmail = async (
-    email: string, 
-    pass: string, 
-    name: string, 
-    role?: string, 
-    dept?: string,
-    division?: PengelolaanType
-  ): Promise<{ success: boolean; message: string }> => {
-    try {
-      const selectedDivision = division || 'ERS';
-      const cred = await createUserWithEmailAndPassword(auth, email.trim(), pass);
-      await updateProfile(cred.user, { displayName: name.trim() });
-      await syncUserProfile(cred.user, { role, department: dept });
-
-      const nextUser = {
-        ...EMPTY_USER,
-        uid: cred.user.uid,
-        name: name.trim(),
-        email: cred.user.email?.toLowerCase() || email.trim().toLowerCase(),
-        role: role?.trim() || 'Finance AR Specialist',
-        department: dept?.trim() || 'Divisi Finance & Collection Enterprise Telkom',
-        division: selectedDivision,
-        avatarUrl: cred.user.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${cred.user.uid}`,
-        isLoggedIn: true,
-        authProvider: 'firebase'
-      };
-
-      setUser(nextUser);
-
-      setPengelolaan(selectedDivision);
-      setIsLoginModalOpen(false);
-      return { success: true, message: `Akun baru berhasil didaftarkan!` };
-    } catch (err: any) {
-      return { success: false, message: err.message || 'Terjadi gangguan jaringan saat registrasi.' };
-    }
-  };
-
-  // Firebase / Google Direct OAuth Sign In
-  const loginWithGooglePopup = async (googleEmail?: string, googleName?: string, chosenDivision?: PengelolaanType): Promise<{ success: boolean; message: string }> => {
-    try {
-      const activeDivision = chosenDivision || 'ERS';
-      const cred = await signInWithPopup(auth, googleProvider);
-      const fbUser = cred.user;
-      await syncUserProfile(fbUser, { role: 'Finance AR Specialist', department: 'Divisi Finance & Collection Enterprise Telkom' });
-
-      const email = fbUser.email?.toLowerCase() || googleEmail?.trim().toLowerCase() || '';
-      const displayName = fbUser.displayName || googleName?.trim() || email.split('@')[0] || 'User';
-      const photoURL = fbUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${fbUser.uid}`;
-
-      const nextUser = {
-        ...EMPTY_USER,
-        uid: fbUser.uid,
-        name: displayName,
-        email,
-        role: 'Finance AR Specialist',
-        department: 'Divisi Finance & Collection Enterprise Telkom',
-        division: activeDivision,
-        avatarUrl: photoURL,
-        isLoggedIn: true,
-        authProvider: 'firebase'
-      };
-
-      setUser(nextUser);
-      setPengelolaan(activeDivision);
-      setIsLoginModalOpen(false);
-      return { success: true, message: `Selamat datang, ${displayName}!` };
-    } catch (err: any) {
-      console.warn('Google login error:', err);
-      return { success: false, message: err.message || 'Gagal menghubungkan akun Google.' };
-    }
-  };
-
   const updateUserProfile = async (updates: Partial<UserAccount>): Promise<{ success: boolean; message: string }> => {
     try {
       setUser(prev => {
@@ -474,36 +292,26 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  const loginWithGoogleRedirect = async (): Promise<{ success: boolean; message: string }> => {
-    try {
-      setPendingGoogleRedirect(true);
-      await signInWithRedirect(auth, googleProvider);
-      return { success: true, message: 'Mengalihkan ke login Google...' };
-    } catch (err: any) {
-      setPendingGoogleRedirect(false);
-      return { success: false, message: err.message || 'Gagal memulai login Google.' };
-    }
+  const loginWithEmail = async (email: string, pass: string): Promise<{ success: boolean; message: string }> => {
+    return { success: true, message: 'Logged in as demo user' };
   };
 
-  // Full Logout
+  const registerWithEmail = async (
+    email: string, 
+    pass: string, 
+    name: string, 
+    role?: string, 
+    dept?: string,
+    division?: PengelolaanType
+  ): Promise<{ success: boolean; message: string }> => {
+    return { success: true, message: 'Registered as demo user' };
+  };
+
+  const loginWithGooglePopup = async (googleEmail?: string, googleName?: string, chosenDivision?: PengelolaanType): Promise<{ success: boolean; message: string }> => {
+    return { success: true, message: 'Logged in as demo user' };
+  };
+
   const logout = async () => {
-    try {
-      await firebaseSignOut(auth);
-    } catch (e) {
-      // continue
-    }
-
-    localStorage.removeItem(STORAGE_KEYS.jwtToken);
-    localStorage.removeItem(STORAGE_KEYS.microsoftToken);
-    
-    setUser(prev => ({
-      ...prev,
-      isLoggedIn: false,
-      jwtToken: undefined,
-      microsoftConnected: false,
-      microsoftAccessToken: undefined
-    }));
-
     setIsLoginModalOpen(true);
   };
 
@@ -534,7 +342,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }));
 
     try {
-      // 1. Try server-side proxy route with Microsoft Graph and token support + Rate Limiting
       const authHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
       if (user.jwtToken) {
         authHeaders['Authorization'] = `Bearer ${user.jwtToken}`;
@@ -563,11 +370,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setOpenItems(data.items);
         syncAocFromOpenItems(data.items);
 
-        // Auto filter to user's division
         const activeDivision = (user.division || 'ERS') as PengelolaanType;
         setPengelolaan(activeDivision);
 
-        // Persist to user-isolated storage
         const userEmailKey = user.email || 'default';
         try {
           localStorage.setItem(`telkom_data_${userEmailKey}_open_items`, JSON.stringify(data.items));
@@ -637,7 +442,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  // Login with Microsoft Single Sign-On (Popup / OAuth Flow)
   const loginWithMicrosoft = async () => {
     setIsAuthenticatingMicrosoft(true);
     try {
@@ -648,7 +452,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         throw new Error('Gagal membuat URL otorisasi Microsoft.');
       }
 
-      // Open Microsoft OAuth popup directly
       const authWindow = window.open(
         urlData.authUrl,
         'microsoft_oauth_popup',
@@ -662,14 +465,12 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return;
       }
 
-      // Listen for message from popup
       const handleAuthMessage = async (event: MessageEvent) => {
         if (event.data?.type === 'MS_AUTH_SUCCESS') {
           const accessToken = event.data.accessToken;
           if (accessToken) {
             localStorage.setItem(STORAGE_KEYS.microsoftToken, accessToken);
             
-            // Verify and retrieve Microsoft Profile info
             try {
               const verifyRes = await fetch('/api/auth/microsoft/verify', {
                 method: 'POST',
@@ -710,7 +511,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             setIsAuthModalOpen(false);
             setIsAuthenticatingMicrosoft(false);
 
-            // Automatically retry fetching SharePoint link if already provided
             if (sharePointConfig.shareLink) {
               await fetchFromSharePointUrl(sharePointConfig.shareLink, accessToken);
             }
@@ -732,7 +532,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  // Set Microsoft Token Manually
   const setManualMicrosoftToken = async (token: string): Promise<{ success: boolean; message: string }> => {
     const cleanToken = token.trim();
     if (!cleanToken) {
@@ -814,7 +613,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }));
   };
 
-  // Upload Excel File handler
   const handleExcelUpload = async (file: File): Promise<{ success: boolean; message: string; count?: number }> => {
     try {
       setIsSyncing(true);
@@ -851,7 +649,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  // Clear all data cleanly
   const clearAllData = () => {
     setOpenItems([]);
     setAocFollowUps(EMPTY_AOC_FOLLOWUPS);
@@ -868,12 +665,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }));
   };
 
-  // Reset to default sample dummy data
   const resetToDefaultData = () => {
     clearAllData();
   };
 
-  // Manual Trigger Refresh
   const refreshData = async () => {
     if (sharePointConfig.shareLink) {
       await fetchFromSharePointUrl();
@@ -888,7 +683,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  // Auto-Sync SharePoint Poller
   useEffect(() => {
     if (!sharePointConfig.autoSync || !sharePointConfig.shareLink) return;
 
@@ -900,7 +694,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return () => clearInterval(interval);
   }, [sharePointConfig.autoSync, sharePointConfig.shareLink, sharePointConfig.syncIntervalSeconds, sharePointConfig.authToken]);
 
-  // Actions for OpenItem and AOC Follow Up
   const saveFollowUpItem = (item: TindakLanjutAOC) => {
     const updated = aocFollowUps.map(fu => fu.id === item.id ? { ...item, lastUpdated: 'Baru saja' } : fu);
     setAocFollowUps(updated);
@@ -937,7 +730,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     syncAocFromOpenItems(updated);
   };
 
-  // Filtered Items based on Periode and Pengelolaan
   const filteredItems = useMemo(() => {
     return openItems.filter(item => {
       if (periode !== 'Semua Periode' && item.periode !== periode) {
@@ -950,7 +742,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
   }, [openItems, periode, pengelolaan]);
 
-  // Dynamic Calculated Metrics based on filtered items
   const metrics: DashboardMetrics = useMemo(() => {
     const totalAR = filteredItems.reduce((acc, item) => acc + item.nilaiAR, 0);
 
@@ -966,7 +757,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const belumInvoiced = itemsBelumInvoiced.reduce((acc, item) => acc + item.nilaiAR, 0);
     const belumInvoicedPercent = totalAR > 0 ? (belumInvoiced / totalAR) * 100 : 0;
 
-    // Aging Buckets
     const agingMap: Record<AgingBucket, { value: number; color: string }> = {
       '0-3 Bulan': { value: 0, color: '#4a6b4e' },
       '4-12 Bulan': { value: 0, color: '#355138' },
@@ -1003,7 +793,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     };
 
-    // Layak Tagih Jakarta vs Regional
     const layakTagihJakarta = itemsLayakTagih
       .filter(i => i.regionalCategory === 'Jakarta')
       .reduce((acc, item) => acc + item.nilaiAR, 0);
@@ -1012,12 +801,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       .filter(i => i.regionalCategory === 'Regional')
       .reduce((acc, item) => acc + item.nilaiAR, 0);
 
-    // Status Invoice
     const itemsSudahInvoiced = filteredItems.filter(i => i.statusInvoice === 'Sudah Invoiced');
     const statusSudahInvoiced = itemsSudahInvoiced.reduce((acc, item) => acc + item.nilaiAR, 0);
     const statusBelumInvoiced = belumInvoiced;
 
-    // 5 Kategori Belum Invoiced
     const categories: KategoriBelumInvoiced[] = ['Kontrak', 'BAST / BAPP', 'Rekon / SLG', 'Termin', 'Identifikasi'];
     const totalBelumInvoiced = itemsBelumInvoiced.reduce((acc, i) => acc + i.nilaiAR, 0);
 
@@ -1072,12 +859,6 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setUser,
         firebaseUser,
         isAuthLoading,
-        pendingGoogleRedirect,
-        loginWithEmail,
-        registerWithEmail,
-        loginWithGoogleRedirect,
-        loginWithGooglePopup,
-        logout,
         loginWithMicrosoft,
         logoutMicrosoft,
         setManualMicrosoftToken,

@@ -10,7 +10,6 @@ import { DrilldownModal } from './components/DrilldownModal';
 import { EditFollowUpModal } from './components/EditFollowUpModal';
 import { SharePointSyncModal } from './components/SharePointSyncModal';
 import { MicrosoftAuthModal } from './components/MicrosoftAuthModal';
-import { LoginModal } from './components/LoginModal';
 import { SharePointQuickBar } from './components/SharePointQuickBar';
 import { PresentationView } from './components/PresentationView';
 
@@ -36,7 +35,6 @@ const MainLayout: React.FC = () => {
         <EditFollowUpModal />
         <SharePointSyncModal />
         <MicrosoftAuthModal />
-        <LoginModal forceGate={!user.isLoggedIn} />
       </>
     );
   }
@@ -96,7 +94,6 @@ const MainLayout: React.FC = () => {
       <EditFollowUpModal />
       <SharePointSyncModal />
       <MicrosoftAuthModal />
-      <LoginModal forceGate={!user.isLoggedIn} />
     </div>
   );
 };

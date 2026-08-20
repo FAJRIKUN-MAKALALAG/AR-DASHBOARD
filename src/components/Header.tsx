@@ -23,8 +23,8 @@ export const Header: React.FC = () => {
     setPresentationMode,
     user,
     setIsSharePointModalOpen,
-    setIsLoginModalOpen,
-    sharePointConfig
+    sharePointConfig,
+    setActiveTab
   } = useDashboard();
 
   const periodOptions = [
@@ -72,9 +72,9 @@ export const Header: React.FC = () => {
           {/* User Profile & Auth Trigger */}
           <div 
             id="user-profile-header"
-            onClick={() => setIsLoginModalOpen(true)}
+            onClick={() => setActiveTab('profil')}
             className="flex items-center gap-2 p-1.5 pl-2.5 rounded-xl bg-white border border-[#d8e0d6] shadow-sm cursor-pointer hover:bg-[#f7faf5] transition-colors"
-            title={`${user.name} (${user.email}) - Klik untuk ganti akun / Login`}
+            title={`${user.name} (${user.email}) - Klik untuk melihat profil`}
           >
             <div className="text-right hidden md:block">
               <div className="flex items-center gap-1 justify-end">
