@@ -216,6 +216,7 @@ function parseWorkbookRows(buffer: Buffer): any[] {
 async function startServer() {
   const app = express();
   const PORT = 3000;
+  const HOST = process.env.HOST || "127.0.0.1";
 
   // Enable trust proxy for reverse proxy environment (Cloud Run / Nginx)
   app.set("trust proxy", 1);
@@ -897,8 +898,8 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Telkom AR Dashboard Server running on http://0.0.0.0:${PORT}`);
+  app.listen(PORT, HOST, () => {
+    console.log(`Telkom AR Dashboard Server running on http://${HOST}:${PORT}`);
   });
 }
 

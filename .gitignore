@@ -1,8 +1,45 @@
 node_modules/
-build/
 dist/
+build/
 coverage/
-.DS_Store
-*.log
-.env*
+
+# Environment files
+.env
+.env.*
 !.env.example
+!.env.sample
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# TypeScript / Vite / tooling caches
+*.tsbuildinfo
+vite.config.timestamp-*
+.eslintcache
+.cache/
+.turbo/
+
+# Dependency caches
+node_modules/
+
+# Generated app artifacts
+server.cjs
+server.js
+*.map
+
+# Firebase / local deployment metadata
+.firebase/

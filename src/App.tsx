@@ -66,6 +66,7 @@ const MainLayout: React.FC = () => {
         return <TindakLanjutView />;
       case 'laporan':
         return <LaporanView />;
+      case 'profil':
       case 'pengaturan':
         return <PengaturanView />;
       default:

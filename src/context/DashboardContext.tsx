@@ -15,6 +15,8 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   googleProvider, 
   signOut as firebaseSignOut, 
   onAuthStateChanged,
@@ -175,29 +177,41 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       try { 
         const parsed = JSON.parse(saved);
         return {
-          ...parsed,
-          jwtToken: savedJwt || parsed.jwtToken
+          name: parsed.name || '',
+          email: parsed.email || '',
+          role: parsed.role || '',
+          department: parsed.department || '',
+          division: parsed.division,
+          avatarUrl: parsed.avatarUrl || '',
+          isLoggedIn: Boolean(parsed.isLoggedIn),
+          jwtToken: savedJwt || parsed.jwtToken,
+          authProvider: parsed.authProvider,
+          microsoftConnected: Boolean(parsed.microsoftConnected),
+          microsoftAccessToken: parsed.microsoftAccessToken,
+          microsoftTenant: parsed.microsoftTenant,
+          microsoftAccountEmail: parsed.microsoftAccountEmail
         };
       } catch (e) { /* fallback */ }
     }
     const savedToken = localStorage.getItem('telkom_ms_token') || '';
     return {
-      name: 'Fajri Makalalag',
-      email: 'makalalagfajrikun@gmail.com',
-      role: 'Senior AR & AOC Finance Specialist',
-      department: 'Divisi Finance & Collection Enterprise Telkom',
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-      isLoggedIn: true,
+      name: '',
+      email: '',
+      role: '',
+      department: '',
+      avatarUrl: '',
+      isLoggedIn: false,
       jwtToken: savedJwt,
-      authProvider: 'jwt',
+      authProvider: undefined,
       microsoftConnected: Boolean(savedToken),
       microsoftAccessToken: savedToken,
-      microsoftAccountEmail: 'makalalagfajrikun@gmail.com'
+      microsoftAccountEmail: ''
     };
   });
 
   const [isAuthenticatingMicrosoft, setIsAuthenticatingMicrosoft] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [pendingGoogleRedirect, setPendingGoogleRedirect] = useState<boolean>(false);
 
   // Validate existing JWT session on startup
   useEffect(() => {
@@ -225,6 +239,34 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           console.warn('[JWT Session Validation]:', err);
         });
     }
+  }, []);
+
+  useEffect(() => {
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (result?.user) {
+          const fbUser = result.user;
+          await syncUserProfile(fbUser);
+          setUser(prev => ({
+            ...prev,
+            uid: fbUser.uid,
+            name: fbUser.displayName || fbUser.email?.split('@')[0] || prev.name || 'User',
+            email: fbUser.email || prev.email,
+            avatarUrl: fbUser.photoURL || prev.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${fbUser.uid}`,
+            isLoggedIn: true,
+            authProvider: 'firebase'
+          }));
+          setIsLoginModalOpen(false);
+        }
+      })
+      .catch(err => {
+        if (err?.code !== 'auth/no-auth-event') {
+          console.warn('[Firebase Redirect Result]:', err);
+        }
+      })
+      .finally(() => {
+        setPendingGoogleRedirect(false);
+      });
   }, []);
 
   // SharePoint Real-Time Live Config
@@ -602,87 +644,49 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  // Quick 1-Click Tester Persona Login (With isolated JWT tokens for multi-user testing)
-  const quickLoginAsTester = async (key: TesterRoleKey): Promise<{ success: boolean; message: string }> => {
-    const persona = TESTER_PERSONAS[key] || TESTER_PERSONAS.analyst;
-    const assignedDivision: PengelolaanType = key === 'analyst' ? 'ERS' : key === 'lead' ? 'DES' : 'DBS';
-    
+  const updateUserProfile = async (updates: Partial<UserAccount>): Promise<{ success: boolean; message: string }> => {
     try {
-      // 1. Call JWT Quick Tester API to get isolated JWT session
-      const res = await fetch('/api/auth/quick-tester', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roleKey: key })
+      setUser(prev => {
+        const next = { ...prev, ...updates };
+        localStorage.setItem('telkom_user_account', JSON.stringify(next));
+        return next;
       });
 
-      const data = await res.json();
-      let jwtToken = '';
-
-      if (res.ok && data.success && data.token) {
-        jwtToken = data.token;
-        localStorage.setItem('telkom_jwt_token', jwtToken);
+      if (updates.division) {
+        setPengelolaan(updates.division);
       }
 
-      // 2. Also authenticate with Firebase in background
-      try {
-        const defaultPass = 'TelkomAR2026!';
-        try {
-          const cred = await signInWithEmailAndPassword(auth, persona.email, defaultPass);
-          await syncUserProfile(cred.user, { role: persona.role, department: persona.department });
-        } catch (loginErr: any) {
-          if (loginErr.code === 'auth/user-not-found' || loginErr.code === 'auth/invalid-credential') {
-            try {
-              const cred = await createUserWithEmailAndPassword(auth, persona.email, defaultPass);
-              await updateProfile(cred.user, { displayName: persona.name, photoURL: persona.avatarUrl });
-              await syncUserProfile(cred.user, { role: persona.role, department: persona.department });
-            } catch (createErr) {
-              // fallback
-            }
-          }
+      if (updates.email || updates.name || updates.role || updates.department || updates.division) {
+        const email = (updates.email || user.email || '').trim().toLowerCase();
+        if (email) {
+          await fetch('/api/auth/profile', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email,
+              name: updates.name ?? user.name,
+              role: updates.role ?? user.role,
+              department: updates.department ?? user.department,
+              division: updates.division ?? user.division
+            })
+          });
         }
-      } catch (e) {
-        // fallback
       }
 
-      setUser(prev => ({
-        ...prev,
-        uid: data?.user?.id || `tester-${key}`,
-        name: persona.name,
-        email: persona.email,
-        role: persona.role,
-        department: persona.department,
-        division: assignedDivision,
-        avatarUrl: persona.avatarUrl,
-        jwtToken: jwtToken || prev.jwtToken,
-        isLoggedIn: true,
-        authProvider: 'jwt'
-      }));
+      return { success: true, message: 'Profil berhasil diperbarui.' };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Gagal memperbarui profil.' };
+    }
+  };
 
-      // Load user-isolated data if saved
-      const savedUserItems = localStorage.getItem(`telkom_data_${persona.email}_open_items`);
-      if (savedUserItems) {
-        try {
-          const parsed = JSON.parse(savedUserItems);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setOpenItems(parsed);
-            syncAocFromOpenItems(parsed);
-          }
-        } catch (e) {}
-      }
-
-      const savedUserLink = localStorage.getItem(`telkom_data_${persona.email}_sharepoint_link`);
-      if (savedUserLink) {
-        setSharePointConfig(prev => ({
-          ...prev,
-          shareLink: savedUserLink
-        }));
-      }
-
-      setPengelolaan(assignedDivision);
-      setIsLoginModalOpen(false);
-      return { success: true, message: `Berhasil login sebagai ${persona.name} (Divisi ${assignedDivision}) dengan sesi JWT terisolasi!` };
-    } catch (e: any) {
-      return { success: false, message: e.message || 'Gagal login tester.' };
+  const loginWithGoogleRedirect = async (): Promise<{ success: boolean; message: string }> => {
+    try {
+      setPendingGoogleRedirect(true);
+      await signInWithRedirect(auth, googleProvider);
+      return { success: true, message: 'Mengalihkan ke login Google...' };
+    } catch (err: any) {
+      setPendingGoogleRedirect(false);
+      return { success: false, message: err.message || 'Gagal memulai login Google.' };
     }
   };
 
@@ -1273,10 +1277,11 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setUser,
         firebaseUser,
         isAuthLoading,
+        pendingGoogleRedirect,
         loginWithEmail,
         registerWithEmail,
+        loginWithGoogleRedirect,
         loginWithGooglePopup,
-        quickLoginAsTester,
         logout,
         loginWithMicrosoft,
         logoutMicrosoft,
@@ -1310,7 +1315,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         addNewOpenItem,
         updateOpenItem,
         deleteOpenItem,
-        resetToDefaultData
+        resetToDefaultData,
+        updateUserProfile
       }}
     >
       {children}

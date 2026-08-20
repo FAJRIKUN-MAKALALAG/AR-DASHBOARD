@@ -15,8 +15,10 @@ import {
   Key,
   LogIn,
   LogOut,
-  UserCheck
+  UserCheck,
+  Building2
 } from 'lucide-react';
+import { PengelolaanType } from '../../types';
 import { useDashboard } from '../../context/DashboardContext';
 
 export const PengaturanView: React.FC = () => {
@@ -25,10 +27,10 @@ export const PengaturanView: React.FC = () => {
     setSharePointConfig, 
     user, 
     setUser, 
+    updateUserProfile,
     loginWithMicrosoft,
     logoutMicrosoft,
     setIsAuthModalOpen,
-    setIsLoginModalOpen,
     logout,
     clearAllData,
     fetchFromSharePointUrl,
@@ -38,11 +40,28 @@ export const PengaturanView: React.FC = () => {
 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileResult, setProfileResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileSaving(true);
+    setProfileResult(null);
+    const res = await updateUserProfile({
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      department: user.department,
+      division: user.division
+    });
+    setProfileSaving(false);
+    setProfileResult(res);
   };
 
   const handleTestFetch = async () => {
@@ -60,10 +79,10 @@ export const PengaturanView: React.FC = () => {
       <div className="bg-white p-5 rounded-2xl border border-[#dce5dc] shadow-sm flex items-center justify-between">
         <div>
           <h2 className="text-xl font-extrabold text-[#1a291c] font-['Space_Grotesk']">
-            Pengaturan Sistem, Autentikasi Penguji & Integrasi SharePoint
+            Profil Pengguna, Divisi, dan Integrasi SharePoint
           </h2>
           <p className="text-xs text-[#627764] mt-0.5">
-            Konfigurasi akun Firebase testing, otentikasi Microsoft 365, izin akses role-based private link, dan interval auto-sync
+            Kelola profil aktif Anda, pilih divisi kerja, dan hubungkan akses SharePoint pribadi.
           </p>
         </div>
       </div>
@@ -74,20 +93,12 @@ export const PengaturanView: React.FC = () => {
           <div className="flex items-center gap-2">
             <UserCheck className="w-5 h-5 text-[#355138]" />
             <h3 className="font-extrabold text-sm text-[#1b2c1e] font-['Space_Grotesk']">
-              Status Akun & Akses Pengguna
+              Status Akun Aktif
             </h3>
           </div>
-          <button
-            type="button"
-            onClick={() => setIsLoginModalOpen(true)}
-            className="px-3.5 py-1.5 rounded-xl bg-[#2b3e2d] hover:bg-[#1d2d1f] text-white text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs"
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>Ganti Akun / Login Baru</span>
-          </button>
         </div>
         <p className="text-xs text-[#5e7561]">
-          Pengguna yang memiliki akses ke SharePoint dapat masuk menggunakan email masing-masing atau menggunakan Google Sign-In untuk mengelola data dan melakukan pembaharuan follow-up AOC.
+          Login dengan Google OAuth, email & password, atau buat akun baru. Division diatur dari halaman ini setelah login.
         </p>
       </div>
 
@@ -119,11 +130,11 @@ export const PengaturanView: React.FC = () => {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
                 <p className="font-extrabold text-sm text-[#1a291c] truncate">{user.name}</p>
-                <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  {user.authProvider === 'jwt' ? 'JWT Token' : (user.authProvider || 'Firebase')}
-                </span>
-              </div>
-              <p className="text-xs text-[#556e58] font-mono truncate">{user.email}</p>
+              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                {user.authProvider === 'jwt' ? 'JWT Token' : (user.authProvider || 'Firebase')}
+              </span>
+            </div>
+            <p className="text-xs text-[#556e58] font-mono truncate">{user.email}</p>
               <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                 <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md inline-flex items-center gap-1">
                   <ShieldCheck className="w-3 h-3" /> Stateless JWT Session
@@ -167,6 +178,7 @@ export const PengaturanView: React.FC = () => {
           </div>
 
           <div className="space-y-3 text-xs">
+            <form onSubmit={handleSaveProfile} className="space-y-3">
             <div>
               <label className="block font-bold text-[#354a37] mb-1">Nama Lengkap</label>
               <input
@@ -197,6 +209,24 @@ export const PengaturanView: React.FC = () => {
               />
             </div>
 
+            <div>
+              <label className="block font-bold text-[#354a37] mb-1 flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5 text-[#355138]" />
+                <span>Divisi / Pengelolaan Aktif</span>
+              </label>
+              <select
+                value={user.division || 'ERS'}
+                onChange={e => setUser(prev => ({ ...prev, division: e.target.value as PengelolaanType }))}
+                className="w-full px-3 py-2 bg-[#f4f7f2] border border-[#d8e2d7] rounded-xl text-[#1e2e21] font-semibold focus:ring-2 focus:ring-[#446046] focus:outline-none"
+              >
+                <option value="ERS">ERS</option>
+                <option value="DES">DES</option>
+                <option value="DBS">DBS</option>
+                <option value="DPS">DPS</option>
+                <option value="RWS">RWS</option>
+              </select>
+            </div>
+
             <div className="pt-2 border-t border-[#edf2ec] flex items-center justify-between">
               <button
                 type="button"
@@ -208,14 +238,24 @@ export const PengaturanView: React.FC = () => {
               </button>
 
               <button
-                type="button"
-                onClick={logout}
-                className="text-xs text-red-700 hover:text-red-900 font-bold flex items-center gap-1.5 hover:underline"
+                type="submit"
+                disabled={profileSaving}
+                className="text-xs text-[#314a34] hover:text-[#18291b] font-bold flex items-center gap-1.5 hover:underline disabled:opacity-50"
               >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Keluar dari Akun</span>
+                <Save className="w-3.5 h-3.5" />
+                <span>{profileSaving ? 'Menyimpan...' : 'Simpan Profil'}</span>
               </button>
             </div>
+            </form>
+
+            {profileResult && (
+              <div className={`p-2.5 rounded-xl border flex items-center gap-1.5 font-bold ${
+                profileResult.success ? 'bg-emerald-50 text-emerald-900 border-emerald-300' : 'bg-red-50 text-red-900 border-red-200'
+              }`}>
+                {profileResult.success ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <AlertCircle className="w-4 h-4 text-red-600" />}
+                <span className="text-xs">{profileResult.message}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -229,11 +269,11 @@ export const PengaturanView: React.FC = () => {
           </div>
 
           <div className="space-y-3 text-xs">
-            <div>
-              <label className="block font-bold text-[#354a37] mb-1 flex items-center gap-1">
-                <LinkIcon className="w-3.5 h-3.5 text-emerald-800" />
-                <span>Link Tautan SharePoint / File Excel Live (Privat / Organisasi)</span>
-              </label>
+              <div>
+                <label className="block font-bold text-[#354a37] mb-1 flex items-center gap-1">
+                  <LinkIcon className="w-3.5 h-3.5 text-emerald-800" />
+                  <span>Link SharePoint / File Excel Live</span>
+                </label>
               <input
                 type="text"
                 placeholder="https://telkomcorp.sharepoint.com/:x:/r/teams/Finance/.../Open_Item_AR.xlsx"
@@ -243,11 +283,11 @@ export const PengaturanView: React.FC = () => {
               />
             </div>
 
-            <div>
-              <label className="block font-bold text-[#354a37] mb-1 flex items-center gap-1">
-                <Key className="w-3.5 h-3.5 text-[#355138]" />
-                <span>Bearer Token / Microsoft Graph Token (Otomatis terisi saat SSO)</span>
-              </label>
+              <div>
+                <label className="block font-bold text-[#354a37] mb-1 flex items-center gap-1">
+                  <Key className="w-3.5 h-3.5 text-[#355138]" />
+                  <span>Bearer Token Microsoft (Otomatis terisi saat SSO)</span>
+                </label>
               <input
                 type="password"
                 placeholder="Token akan terisi otomatis saat Anda login Microsoft SSO..."

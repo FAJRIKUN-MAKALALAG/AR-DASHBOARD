@@ -36,7 +36,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed = false, onToggleCol
     { id: 'belum-invoiced', label: 'Belum Invoiced', icon: <FileText className="w-5 h-5" /> },
     { id: 'tindak-lanjut', label: 'Tindak Lanjut AOC', icon: <ListTodo className="w-5 h-5" /> },
     { id: 'laporan', label: 'Laporan', icon: <FileSpreadsheet className="w-5 h-5" /> },
-    { id: 'pengaturan', label: 'Pengaturan', icon: <Settings className="w-5 h-5" /> },
+    { id: 'profil', label: 'Profil', icon: <Settings className="w-5 h-5" /> },
   ];
 
   return (
