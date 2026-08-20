@@ -1,12 +1,12 @@
 {
-  "projectId": "gen-lang-client-0007788873",
-  "appId": "1:375011835598:web:88c796d7c762dba5771a9f",
-  "apiKey": "AIzaSyBYVT8-4cOZzIWG4IVEXxm_VwdnOOxR3S4",
-  "authDomain": "gen-lang-client-0007788873.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-telkomfinanceard-57b62a0a-0eaa-4ef2-820a-6e488d0da347",
-  "storageBucket": "gen-lang-client-0007788873.firebasestorage.app",
-  "messagingSenderId": "375011835598",
-  "measurementId": "",
-  "oAuthClientId": "375011835598-dqic1bvfchfjrr6j3v9m5q91mn7b5vob.apps.googleusercontent.com",
+  "projectId": "ar-dashboard-34f4e",
+  "appId": "1:332339105736:web:aab50d53229d4468d33afd",
+  "apiKey": "AIzaSyC04NM7L9m2LX7hMxLlOtrp9BqfPHWokdQ",
+  "authDomain": "ar-dashboard-34f4e.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "ar-dashboard-34f4e.firebasestorage.app",
+  "messagingSenderId": "332339105736",
+  "measurementId": "",  
+  "oAuthClientId": "",
   "recaptchaSiteKey": ""
 }
