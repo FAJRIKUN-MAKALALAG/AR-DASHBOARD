@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BarChart3, AlertTriangle, Clock, CheckCircle2, ArrowRight } from 'lucide-react';
 import { useDashboard } from '../../context/DashboardContext';
 import { formatNumberMiliar, formatRupiahMiliar } from '../../utils/excelHelper';
@@ -7,6 +7,12 @@ import { AgingBucket } from '../../types';
 export const AgingARView: React.FC = () => {
   const { metrics, filteredItems, setSelectedDrilldown } = useDashboard();
   const buckets: AgingBucket[] = ['0-3 Bulan', '4-12 Bulan', '13-24 Bulan', '>24 Bulan'];
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
+
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+  const page = Math.min(currentPage, totalPages || 1);
+  const paginatedItems = filteredItems.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   return (
     <div className="space-y-6">
@@ -31,32 +37,31 @@ export const AgingARView: React.FC = () => {
           return (
             <div 
               key={b}
-              onClick={() => setSelectedDrilldown({
-                title: `Aging Detail: ${b}`,
-                agingBucket: b,
+              onClick={() => items.length > 0 && setSelectedDrilldown({
+                title: `Detail AR Aging: ${b}`,
                 items
               })}
-              className={`p-5 rounded-2xl bg-white border transition-all cursor-pointer shadow-sm hover:shadow-md ${
-                isHighRisk ? 'border-[#ebdccf] hover:border-[#dfbfa4]' : 'border-[#dce5dc] hover:border-[#a9c2ac]'
+              className={`bg-white p-5 rounded-2xl border border-[#dce5dc] shadow-sm cursor-pointer hover:border-emerald-600 hover:shadow-md transition-all group ${
+                items.length > 0 ? '' : 'pointer-events-none opacity-80'
               }`}
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-extrabold text-[#405643] uppercase tracking-wider">{b}</span>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                  isHighRisk ? 'bg-amber-100 text-amber-900' : 'bg-emerald-100 text-emerald-900'
-                }`}>
-                  {items.length} Item
-                </span>
+                <span className="text-[11px] font-bold text-[#5c725f] uppercase tracking-wider">{b}</span>
+                {isHighRisk && data.value > 0 ? (
+                  <span className="flex h-2 w-2 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                  </span>
+                ) : null}
               </div>
-              <h3 className="text-2xl font-extrabold text-[#19271a] font-['Space_Grotesk']">
-                {formatNumberMiliar(data.value)} M
+              <h3 className="text-2xl font-extrabold text-[#1a291c] font-['Space_Grotesk']">
+                {formatRupiahMiliar(data.value)}
               </h3>
-              <p className="text-xs font-semibold text-[#5a715e] mt-1">
-                {data.percent.toFixed(1)}% dari Total AR
-              </p>
-              <div className="mt-3 pt-3 border-t border-[#edf2ec] flex items-center justify-between text-xs text-[#526b55] font-semibold">
-                <span>Lihat Rincian</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
+                <span className="text-[10px] text-[#6d8270] font-semibold">{data.percent.toFixed(1)}% Kontribusi</span>
+                <span className="text-[10px] text-emerald-800 font-bold flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                  {items.length} Item <ArrowRight className="w-2.5 h-2.5" />
+                </span>
               </div>
             </div>
           );
@@ -64,12 +69,17 @@ export const AgingARView: React.FC = () => {
       </div>
 
       {/* Customer Aging Matrix Table */}
-      <div className="bg-white rounded-2xl border border-[#dce5dc] p-5 shadow-sm overflow-hidden">
-        <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#223324] font-['Space_Grotesk'] mb-4">
-          Matriks Umur Piutang per Pelanggan
-        </h3>
+      <div className="bg-white rounded-2xl border border-[#dce5dc] p-5 shadow-sm overflow-hidden space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#223324] font-['Space_Grotesk']">
+            Matriks Umur Piutang per Pelanggan
+          </h3>
+          <span className="text-xs font-bold text-[#5c725f]">
+            Total: {filteredItems.length} Item
+          </span>
+        </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto border border-[#e2ebe0] rounded-xl">
           <table className="w-full text-left text-xs">
             <thead>
               <tr className="bg-[#f6f9f5] text-[#4e6652] font-bold border-b border-[#e5ede3] text-[11px] uppercase">
@@ -83,7 +93,7 @@ export const AgingARView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#edf2ec]">
-              {filteredItems.map(item => (
+              {paginatedItems.map(item => (
                 <tr key={item.id} className="hover:bg-[#f9fbf8]">
                   <td className="py-3 px-4 font-bold text-[#1a281c]">{item.namaPelanggan}</td>
                   <td className="py-3 px-3 font-mono text-[11px] text-[#6b816d]">{item.nomorKontrak}</td>
@@ -103,6 +113,50 @@ export const AgingARView: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 text-xs text-[#5c725f]">
+            <div>
+              Menampilkan <span className="font-bold">{((page - 1) * itemsPerPage) + 1}</span> -{' '}
+              <span className="font-bold">{Math.min(page * itemsPerPage, filteredItems.length)}</span> dari{' '}
+              <span className="font-bold">{filteredItems.length}</span> item
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                disabled={page === 1}
+                onClick={() => setCurrentPage(1)}
+                className="px-2.5 py-1.5 rounded-lg border border-[#dce5dc] hover:bg-[#f4f7f4] disabled:opacity-40 disabled:hover:bg-transparent font-medium cursor-pointer"
+              >
+                Pertama
+              </button>
+              <button
+                disabled={page === 1}
+                onClick={() => setCurrentPage(page - 1)}
+                className="px-2.5 py-1.5 rounded-lg border border-[#dce5dc] hover:bg-[#f4f7f4] disabled:opacity-40 disabled:hover:bg-transparent font-medium cursor-pointer"
+              >
+                Sebelumnya
+              </button>
+              <span className="px-3 py-1.5 bg-[#eef4ed] text-[#2f4231] rounded-lg border border-[#d0e0cf] font-bold">
+                Halaman {page} dari {totalPages}
+              </span>
+              <button
+                disabled={page === totalPages}
+                onClick={() => setCurrentPage(page + 1)}
+                className="px-2.5 py-1.5 rounded-lg border border-[#dce5dc] hover:bg-[#f4f7f4] disabled:opacity-40 disabled:hover:bg-transparent font-medium cursor-pointer"
+              >
+                Selanjutnya
+              </button>
+              <button
+                disabled={page === totalPages}
+                onClick={() => setCurrentPage(totalPages)}
+                className="px-2.5 py-1.5 rounded-lg border border-[#dce5dc] hover:bg-[#f4f7f4] disabled:opacity-40 disabled:hover:bg-transparent font-medium cursor-pointer"
+              >
+                Terakhir
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

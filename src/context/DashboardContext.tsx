@@ -204,7 +204,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
     return {
       siteUrl: 'https://telkomcorp.sharepoint.com/teams/Finance-Enterprise-AR',
-      shareLink: '',
+      shareLink: 'demo',
       filePath: '/Shared Documents/Open_Item_AR_Live.xlsx',
       driveName: 'General Financial Documents',
       tenantId: 'common',
@@ -616,36 +616,47 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const handleExcelUpload = async (file: File): Promise<{ success: boolean; message: string; count?: number }> => {
     try {
       setIsSyncing(true);
-      const buffer = await file.arrayBuffer();
-      const parsed = parseExcelFile(buffer);
-      
-      if (!parsed || parsed.length === 0) {
-        setIsSyncing(false);
-        return { success: false, message: 'File Excel tidak berisi data yang valid atau kolom tidak sesuai.' };
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/upload-excel', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
       }
 
-      setOpenItems(parsed);
-      syncAocFromOpenItems(parsed);
+      const data = await res.json();
+      
+      if (!data.success || !Array.isArray(data.items)) {
+        setIsSyncing(false);
+        return { success: false, message: data.message || 'File Excel tidak berisi data yang valid atau kolom tidak sesuai.' };
+      }
+
+      setOpenItems(data.items);
+      syncAocFromOpenItems(data.items);
 
       const now = new Date();
       const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')} WIB`;
-      setLastUpdatedText(`File Excel: ${timeStr} (${parsed.length} Item)`);
+      setLastUpdatedText(`File Excel Backend: ${timeStr} (${data.items.length} Item)`);
       
       setSharePointConfig(prev => ({ 
         ...prev, 
         mode: 'excel_upload', 
         isConnected: true, 
         lastFetchStatus: 'success', 
-        lastFetchMessage: `Berhasil memuat ${parsed.length} data dari file Excel lokal!`,
-        fetchedCount: parsed.length,
+        lastFetchMessage: data.message || `Berhasil memuat ${data.items.length} data dari file Excel lokal via Python!`,
+        fetchedCount: data.items.length,
         lastSyncTime: timeStr
       }));
 
       setIsSyncing(false);
-      return { success: true, message: `Berhasil memproses ${parsed.length} baris data dari file ${file.name}`, count: parsed.length };
+      return { success: true, message: data.message, count: data.items.length };
     } catch (err: any) {
       setIsSyncing(false);
-      return { success: false, message: `Gagal membaca file Excel: ${err.message}` };
+      return { success: false, message: `Gagal membaca file Excel di backend: ${err.message}` };
     }
   };
 
@@ -693,6 +704,13 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     return () => clearInterval(interval);
   }, [sharePointConfig.autoSync, sharePointConfig.shareLink, sharePointConfig.syncIntervalSeconds, sharePointConfig.authToken]);
+
+  // Auto-fetch mock data on mount from Python backend if no items exist
+  useEffect(() => {
+    if (openItems.length === 0) {
+      fetchFromSharePointUrl("demo");
+    }
+  }, []);
 
   const saveFollowUpItem = (item: TindakLanjutAOC) => {
     const updated = aocFollowUps.map(fu => fu.id === item.id ? { ...item, lastUpdated: 'Baru saja' } : fu);

@@ -17,6 +17,8 @@ import { OpenItemAR } from '../types';
 export const DrilldownModal: React.FC = () => {
   const { selectedDrilldown, setSelectedDrilldown } = useDashboard();
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
 
   if (!selectedDrilldown) return null;
 
@@ -33,6 +35,10 @@ export const DrilldownModal: React.FC = () => {
   });
 
   const totalNilai = items.reduce((acc, curr) => acc + curr.nilaiAR, 0);
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const page = Math.min(currentPage, totalPages || 1);
+  const paginated = filtered.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -77,7 +83,7 @@ export const DrilldownModal: React.FC = () => {
               type="text"
               placeholder="Cari nama pelanggan, nomor kontrak, invoice..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
               className="w-full pl-9 pr-4 py-1.5 text-xs bg-[#f4f7f2] border border-[#dbe5da] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#446046]"
             />
           </div>
@@ -85,13 +91,13 @@ export const DrilldownModal: React.FC = () => {
           <div className="flex items-center gap-2 text-xs font-bold text-[#203222] bg-[#edf4ec] px-3.5 py-1.5 rounded-xl border border-[#d2e2d0]">
             <span>Total Nilai:</span>
             <span className="text-sm font-extrabold text-[#172719] font-['Space_Grotesk']">
-              {formatRupiahMiliar(totalNilai / 1000000000)}
+              {formatRupiahMiliar(totalNilai)}
             </span>
           </div>
         </div>
 
         {/* Table Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {filtered.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
               <FileSpreadsheet className="w-12 h-12 text-gray-300 mx-auto mb-2" />
@@ -101,7 +107,7 @@ export const DrilldownModal: React.FC = () => {
             <div className="border border-[#e2ebe0] rounded-2xl overflow-hidden shadow-xs">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-[#f6f9f5] text-[#4f6753] font-bold border-b border-[#e5ece3] text-[11px] uppercase">
+                  <tr className="bg-[#f6f9f5] text-[#4f6753] font-bold border-b border-[#e5ede3] text-[11px] uppercase">
                     <th className="py-3 px-4">Pelanggan & Kontrak</th>
                     <th className="py-3 px-3">Segmen / Pengelolaan</th>
                     <th className="py-3 px-3">Regional</th>
@@ -112,7 +118,7 @@ export const DrilldownModal: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#edf2ec] text-[#1e2d20]">
-                  {filtered.map((item) => (
+                  {paginated.map((item) => (
                     <tr key={item.id} className="hover:bg-[#f9fbf8] transition-colors">
                       <td className="py-3 px-4">
                         <p className="font-bold text-[#1a281c] text-xs">{item.namaPelanggan}</p>
@@ -129,7 +135,7 @@ export const DrilldownModal: React.FC = () => {
                       </td>
                       <td className="py-3 px-3 text-right">
                         <p className="font-extrabold text-[#17251a] font-['Space_Grotesk'] text-sm">
-                          {formatRupiahMiliar(item.nilaiAR / 1000000000)}
+                          {formatRupiahMiliar(item.nilaiAR)}
                         </p>
                         <p className="text-[10px] text-gray-500">{formatRupiahFull(item.nilaiAR)}</p>
                       </td>
@@ -164,11 +170,51 @@ export const DrilldownModal: React.FC = () => {
           )}
         </div>
 
-        {/* Modal Footer */}
-        <div className="px-6 py-3 border-t border-[#e2eae0] bg-[#f8faf7] flex justify-end">
+        {/* Modal Footer with Pagination and Close button */}
+        <div className="px-6 py-3 border-t border-[#e2eae0] bg-[#f8faf7] flex flex-col sm:flex-row items-center justify-between gap-3">
+          {totalPages > 1 ? (
+            <div className="flex items-center gap-1 text-xs text-[#5c725f]">
+              <button
+                disabled={page === 1}
+                onClick={() => setCurrentPage(1)}
+                className="px-2.5 py-1.5 rounded-lg border border-[#dce5dc] hover:bg-[#f4f7f4] disabled:opacity-40 disabled:hover:bg-transparent font-medium cursor-pointer"
+              >
+                Pertama
+              </button>
+              <button
+                disabled={page === 1}
+                onClick={() => setCurrentPage(page - 1)}
+                className="px-2.5 py-1.5 rounded-lg border border-[#dce5dc] hover:bg-[#f4f7f4] disabled:opacity-40 disabled:hover:bg-transparent font-medium cursor-pointer"
+              >
+                Sebelumnya
+              </button>
+              <span className="px-3 py-1.5 bg-[#eef4ed] text-[#2f4231] rounded-lg border border-[#d0e0cf] font-bold">
+                Halaman {page} dari {totalPages} (Total: {filtered.length})
+              </span>
+              <button
+                disabled={page === totalPages}
+                onClick={() => setCurrentPage(page + 1)}
+                className="px-2.5 py-1.5 rounded-lg border border-[#dce5dc] hover:bg-[#f4f7f4] disabled:opacity-40 disabled:hover:bg-transparent font-medium cursor-pointer"
+              >
+                Selanjutnya
+              </button>
+              <button
+                disabled={page === totalPages}
+                onClick={() => setCurrentPage(totalPages)}
+                className="px-2.5 py-1.5 rounded-lg border border-[#dce5dc] hover:bg-[#f4f7f4] disabled:opacity-40 disabled:hover:bg-transparent font-medium cursor-pointer"
+              >
+                Terakhir
+              </button>
+            </div>
+          ) : (
+            <div className="text-xs text-[#5c725f]">
+              Menampilkan <span className="font-bold">{filtered.length}</span> item
+            </div>
+          )}
+
           <button
             onClick={() => setSelectedDrilldown(null)}
-            className="px-5 py-2 rounded-xl text-xs font-bold bg-[#2e4030] hover:bg-[#203022] text-white shadow-sm transition-colors"
+            className="px-5 py-2 rounded-xl text-xs font-bold bg-[#2e4030] hover:bg-[#203022] text-white shadow-sm transition-colors cursor-pointer w-full sm:w-auto text-center"
           >
             Tutup
           </button>

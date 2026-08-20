@@ -7,6 +7,8 @@ export const InvoiceStatusView: React.FC = () => {
   const { metrics, filteredItems } = useDashboard();
   const [filterType, setFilterType] = useState<'All' | 'Sudah Invoiced' | 'Belum Invoiced'>('All');
   const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
 
   const items = filteredItems.filter(item => {
     const matchType = filterType === 'All' || item.statusInvoice === filterType;
@@ -15,6 +17,10 @@ export const InvoiceStatusView: React.FC = () => {
       (item.nomorInvoice && item.nomorInvoice.toLowerCase().includes(search.toLowerCase()));
     return matchType && matchSearch;
   });
+
+  const totalPages = Math.ceil(items.length / itemsPerPage);
+  const page = Math.min(currentPage, totalPages || 1);
+  const paginatedItems = items.slice((page - 1) * itemsPerPage, page * itemsPerPage);
 
   return (
     <div className="space-y-6">
@@ -28,44 +34,40 @@ export const InvoiceStatusView: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="px-3.5 py-1.5 rounded-xl bg-[#eaf4ea] border border-[#cfe2ce] text-xs font-bold text-[#2b442e]">
-            Sudah: {formatRupiahMiliar(metrics.statusSudahInvoiced)}
-          </div>
-          <div className="px-3.5 py-1.5 rounded-xl bg-[#fdf5ec] border border-[#f5e0cc] text-xs font-bold text-[#9e5519]">
-            Belum: {formatRupiahMiliar(metrics.statusBelumInvoiced)}
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Cari pelanggan/invoice..."
+              value={search}
+              onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
+              className="pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-[#3c503f] w-48 sm:w-60"
+            />
           </div>
         </div>
       </div>
 
-      {/* Filter and Table */}
+      {/* Table & filter section */}
       <div className="bg-white rounded-2xl border border-[#dce5dc] p-5 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1 bg-[#eef4ed] p-1 rounded-xl border border-[#d0e0cf]">
             {(['All', 'Sudah Invoiced', 'Belum Invoiced'] as const).map(type => (
               <button
                 key={type}
-                onClick={() => setFilterType(type)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+                onClick={() => { setFilterType(type); setCurrentPage(1); }}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   filterType === type 
-                    ? 'bg-[#2c3d2e] text-white shadow-xs' 
-                    : 'bg-[#f4f7f2] text-[#4f6652] hover:bg-[#e9f0e7]'
+                    ? 'bg-[#2e4030] text-white shadow-xs' 
+                    : 'text-[#445846] hover:bg-[#e3ede2]'
                 }`}
               >
-                {type === 'All' ? 'Semua Status' : type}
+                {type === 'All' ? 'Semua' : type}
               </button>
             ))}
           </div>
-
-          <div className="relative max-w-xs w-full">
-            <Search className="w-4 h-4 text-[#7b917f] absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Cari pelanggan / invoice..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs bg-[#f4f7f2] border border-[#dbe5da] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#446046]"
-            />
-          </div>
+          <span className="text-xs font-bold text-[#5c725f]">
+            Total: {items.length} Item
+          </span>
         </div>
 
         <div className="overflow-x-auto border border-[#e2ebe0] rounded-xl">
@@ -81,7 +83,7 @@ export const InvoiceStatusView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#edf2ec]">
-              {items.map(item => (
+              {paginatedItems.map(item => (
                 <tr key={item.id} className="hover:bg-[#f9fbf8]">
                   <td className="py-3 px-4 font-bold text-[#1a281c]">{item.namaPelanggan}</td>
                   <td className="py-3 px-3 font-mono text-[11px] text-[#6b816d]">
@@ -107,6 +109,50 @@ export const InvoiceStatusView: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 text-xs text-[#5c725f]">
+            <div>
+              Menampilkan <span className="font-bold">{((page - 1) * itemsPerPage) + 1}</span> -{' '}
+              <span className="font-bold">{Math.min(page * itemsPerPage, items.length)}</span> dari{' '}
+              <span className="font-bold">{items.length}</span> item
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                disabled={page === 1}
+                onClick={() => setCurrentPage(1)}
+                className="px-2.5 py-1.5 rounded-lg border border-[#dce5dc] hover:bg-[#f4f7f4] disabled:opacity-40 disabled:hover:bg-transparent font-medium cursor-pointer"
+              >
+                Pertama
+              </button>
+              <button
+                disabled={page === 1}
+                onClick={() => setCurrentPage(page - 1)}
+                className="px-2.5 py-1.5 rounded-lg border border-[#dce5dc] hover:bg-[#f4f7f4] disabled:opacity-40 disabled:hover:bg-transparent font-medium cursor-pointer"
+              >
+                Sebelumnya
+              </button>
+              <span className="px-3 py-1.5 bg-[#eef4ed] text-[#2f4231] rounded-lg border border-[#d0e0cf] font-bold">
+                Halaman {page} dari {totalPages}
+              </span>
+              <button
+                disabled={page === totalPages}
+                onClick={() => setCurrentPage(page + 1)}
+                className="px-2.5 py-1.5 rounded-lg border border-[#dce5dc] hover:bg-[#f4f7f4] disabled:opacity-40 disabled:hover:bg-transparent font-medium cursor-pointer"
+              >
+                Selanjutnya
+              </button>
+              <button
+                disabled={page === totalPages}
+                onClick={() => setCurrentPage(totalPages)}
+                className="px-2.5 py-1.5 rounded-lg border border-[#dce5dc] hover:bg-[#f4f7f4] disabled:opacity-40 disabled:hover:bg-transparent font-medium cursor-pointer"
+              >
+                Terakhir
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
