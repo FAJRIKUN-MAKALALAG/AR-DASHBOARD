@@ -1,0 +1,42 @@
+{
+  "entities": {
+    "UserProfile": {
+      "collection": "users",
+      "fields": {
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string" },
+        "department": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "timestamp" },
+        "lastLoginAt": { "type": "timestamp" }
+      }
+    },
+    "OpenItemAR": {
+      "collection": "open_items",
+      "fields": {
+        "nomorKontrak": { "type": "string" },
+        "nomorInvoice": { "type": "string" },
+        "namaPelanggan": { "type": "string" },
+        "segmen": { "type": "string" },
+        "pengelolaan": { "type": "string" },
+        "regional": { "type": "string" },
+        "nilaiAR": { "type": "number" },
+        "statusLayakTagih": { "type": "string" },
+        "statusInvoice": { "type": "string" },
+        "agingBucket": { "type": "string" }
+      }
+    },
+    "AOCFollowUp": {
+      "collection": "aoc_followups",
+      "fields": {
+        "kategori": { "type": "string" },
+        "nilai": { "type": "number" },
+        "tindakLanjut": { "type": "string" },
+        "uic": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "status": { "type": "string" }
+      }
+    }
+  }
+}

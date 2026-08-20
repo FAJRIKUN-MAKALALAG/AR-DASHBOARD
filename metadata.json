@@ -1,0 +1,6 @@
+{
+  "name": "Telkom Finance AR Dashboard",
+  "description": "Account Receivable Dashboard & AOC Follow-Up Monitoring with Real-Time SharePoint Excel Data Sync",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
