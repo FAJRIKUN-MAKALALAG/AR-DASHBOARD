@@ -10,6 +10,7 @@ import {
   AgingBucket
 } from '../types';
 import { parseExcelFile } from '../utils/excelHelper';
+import { EMPTY_AOC_FOLLOWUPS, EMPTY_USER, STORAGE_KEYS } from '../constants/dashboard';
 import { 
   auth, 
   signInWithEmailAndPassword, 
@@ -24,14 +25,6 @@ import {
   FirebaseUser,
   updateProfile
 } from '../lib/firebase';
-
-const EMPTY_AOC_FOLLOWUPS: TindakLanjutAOC[] = [
-  { id: 'AOC-1', kategori: 'Kontrak', nilai: 0, tindakLanjut: 'Menunggu sinkronisasi data dari SharePoint...', uic: 'Segmen, Legal & Pelanggan', dueDate: 'Q3', status: 'Open', lastUpdated: '-' },
-  { id: 'AOC-2', kategori: 'BAST / BAPP', nilai: 0, tindakLanjut: 'Menunggu sinkronisasi data dari SharePoint...', uic: 'CGA, Segmen & Pelanggan', dueDate: 'Q3', status: 'Open', lastUpdated: '-' },
-  { id: 'AOC-3', kategori: 'Rekon / SLG', nilai: 0, tindakLanjut: 'Menunggu sinkronisasi data dari SharePoint...', uic: 'Billing & Collection', dueDate: 'Q3', status: 'Open', lastUpdated: '-' },
-  { id: 'AOC-4', kategori: 'Termin', nilai: 0, tindakLanjut: 'Menunggu sinkronisasi data dari SharePoint...', uic: 'Project Manager & Finance', dueDate: 'Q3', status: 'Open', lastUpdated: '-' },
-  { id: 'AOC-5', kategori: 'Identifikasi', nilai: 0, tindakLanjut: 'Belum ada tindak lanjut', uic: '-', dueDate: '-', status: 'Open', lastUpdated: '-' }
-];
 
 interface DashboardMetrics {
   totalAR: number;
@@ -146,7 +139,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   
   // Raw real-time data from SharePoint / Excel - initialized clean
   const [openItems, setOpenItems] = useState<OpenItemAR[]>(() => {
-    const saved = localStorage.getItem('telkom_ar_open_items');
+    const saved = localStorage.getItem(STORAGE_KEYS.openItems);
     if (saved) {
       try { 
         const parsed = JSON.parse(saved);
@@ -157,7 +150,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   const [aocFollowUps, setAocFollowUps] = useState<TindakLanjutAOC[]>(() => {
-    const saved = localStorage.getItem('telkom_aoc_followups');
+    const saved = localStorage.getItem(STORAGE_KEYS.aocFollowUps);
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { /* fallback */ }
     }
@@ -171,8 +164,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // User state
   const [user, setUser] = useState<UserAccount>(() => {
-    const saved = localStorage.getItem('telkom_user_account');
-    const savedJwt = localStorage.getItem('telkom_jwt_token') || '';
+    const saved = localStorage.getItem(STORAGE_KEYS.userAccount);
     if (saved) {
       try { 
         const parsed = JSON.parse(saved);
@@ -184,7 +176,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           division: parsed.division,
           avatarUrl: parsed.avatarUrl || '',
           isLoggedIn: Boolean(parsed.isLoggedIn),
-          jwtToken: savedJwt || parsed.jwtToken,
+          jwtToken: parsed.jwtToken,
           authProvider: parsed.authProvider,
           microsoftConnected: Boolean(parsed.microsoftConnected),
           microsoftAccessToken: parsed.microsoftAccessToken,
@@ -193,53 +185,17 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         };
       } catch (e) { /* fallback */ }
     }
-    const savedToken = localStorage.getItem('telkom_ms_token') || '';
+    const savedToken = localStorage.getItem(STORAGE_KEYS.microsoftToken) || '';
     return {
-      name: '',
-      email: '',
-      role: '',
-      department: '',
-      avatarUrl: '',
-      isLoggedIn: false,
-      jwtToken: savedJwt,
-      authProvider: undefined,
+      ...EMPTY_USER,
       microsoftConnected: Boolean(savedToken),
-      microsoftAccessToken: savedToken,
-      microsoftAccountEmail: ''
+      microsoftAccessToken: savedToken
     };
   });
 
   const [isAuthenticatingMicrosoft, setIsAuthenticatingMicrosoft] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [pendingGoogleRedirect, setPendingGoogleRedirect] = useState<boolean>(false);
-
-  // Validate existing JWT session on startup
-  useEffect(() => {
-    const savedJwt = localStorage.getItem('telkom_jwt_token');
-    if (savedJwt) {
-      fetch('/api/auth/me', {
-        headers: { 'Authorization': `Bearer ${savedJwt}` }
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && data.user) {
-            setUser(prev => ({
-              ...prev,
-              name: data.user.name || prev.name,
-              email: data.user.email || prev.email,
-              role: data.user.role || prev.role,
-              department: data.user.department || prev.department,
-              avatarUrl: data.user.avatarUrl || prev.avatarUrl,
-              jwtToken: savedJwt,
-              isLoggedIn: true
-            }));
-          }
-        })
-        .catch(err => {
-          console.warn('[JWT Session Validation]:', err);
-        });
-    }
-  }, []);
 
   useEffect(() => {
     getRedirectResult(auth)
@@ -271,8 +227,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // SharePoint Real-Time Live Config
   const [sharePointConfig, setSharePointConfig] = useState<SharePointConfig>(() => {
-    const saved = localStorage.getItem('telkom_sharepoint_config');
-    const savedToken = localStorage.getItem('telkom_ms_token') || '';
+    const saved = localStorage.getItem(STORAGE_KEYS.sharePointConfig);
+    const savedToken = localStorage.getItem(STORAGE_KEYS.microsoftToken) || '';
     if (saved) {
       try { 
         const parsed = JSON.parse(saved);
@@ -341,19 +297,19 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Save changes to localStorage
   useEffect(() => {
-    localStorage.setItem('telkom_ar_open_items', JSON.stringify(openItems));
+      localStorage.setItem(STORAGE_KEYS.openItems, JSON.stringify(openItems));
   }, [openItems]);
 
   useEffect(() => {
-    localStorage.setItem('telkom_aoc_followups', JSON.stringify(aocFollowUps));
+    localStorage.setItem(STORAGE_KEYS.aocFollowUps, JSON.stringify(aocFollowUps));
   }, [aocFollowUps]);
 
   useEffect(() => {
-    localStorage.setItem('telkom_user_account', JSON.stringify(user));
+    localStorage.setItem(STORAGE_KEYS.userAccount, JSON.stringify(user));
   }, [user]);
 
   useEffect(() => {
-    localStorage.setItem('telkom_sharepoint_config', JSON.stringify(sharePointConfig));
+    localStorage.setItem(STORAGE_KEYS.sharePointConfig, JSON.stringify(sharePointConfig));
   }, [sharePointConfig]);
 
   // Synchronize AOC follow up table based on real openItems
@@ -382,61 +338,16 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // JWT & Firebase Email & Password Sign In
   const loginWithEmail = async (email: string, pass: string): Promise<{ success: boolean; message: string }> => {
     try {
-      // 1. Call JWT Server Auth API (with Rate Limiting Protection)
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password: pass })
-      });
+      const cred = await signInWithEmailAndPassword(auth, email.trim(), pass);
+      await syncUserProfile(cred.user);
 
-      const data = await res.json();
+      const userEmail = cred.user.email?.toLowerCase() || email.trim().toLowerCase();
+      const storedUser = localStorage.getItem(`telkom_data_${userEmail}_open_items`);
+      const storedProfile = localStorage.getItem(`telkom_data_${userEmail}_sharepoint_link`);
 
-      if (res.status === 429) {
-        return { 
-          success: false, 
-          message: data.message || 'Terlalu banyak percobaan masuk. Mohon tunggu 15 menit sesuai batas keamanan (Rate Limit).' 
-        };
-      }
-
-      if (!res.ok || !data.success) {
-        return { success: false, message: data.message || 'Gagal masuk. Periksa email dan password.' };
-      }
-
-      const jwtToken = data.token;
-      if (jwtToken) {
-        localStorage.setItem('telkom_jwt_token', jwtToken);
-      }
-
-      // 2. Also try Firebase sync in parallel
-      try {
-        const cred = await signInWithEmailAndPassword(auth, email.trim(), pass || 'TelkomAR2026!');
-        await syncUserProfile(cred.user);
-      } catch (fbErr) {
-        // Continue with JWT auth
-      }
-      
-      const userDivision = (data.user.division || 'ERS') as PengelolaanType;
-      const cleanEmail = data.user.email || email;
-
-      setUser(prev => ({
-        ...prev,
-        uid: data.user.id || prev.uid,
-        name: data.user.name || email.split('@')[0],
-        email: cleanEmail,
-        role: data.user.role || prev.role,
-        department: data.user.department || prev.department,
-        division: userDivision,
-        avatarUrl: data.user.avatarUrl || prev.avatarUrl,
-        jwtToken: jwtToken,
-        isLoggedIn: true,
-        authProvider: 'jwt'
-      }));
-
-      // Load user-isolated data if saved
-      const savedUserItems = localStorage.getItem(`telkom_data_${cleanEmail}_open_items`);
-      if (savedUserItems) {
+      if (storedUser) {
         try {
-          const parsed = JSON.parse(savedUserItems);
+          const parsed = JSON.parse(storedUser);
           if (Array.isArray(parsed) && parsed.length > 0) {
             setOpenItems(parsed);
             syncAocFromOpenItems(parsed);
@@ -444,19 +355,31 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         } catch (e) {}
       }
 
-      const savedUserLink = localStorage.getItem(`telkom_data_${cleanEmail}_sharepoint_link`);
-      if (savedUserLink) {
-        setSharePointConfig(prev => ({
-          ...prev,
-          shareLink: savedUserLink
-        }));
+      if (storedProfile) {
+        setSharePointConfig(prev => ({ ...prev, shareLink: storedProfile }));
       }
 
-      setPengelolaan(userDivision);
+      const nextUser = {
+        ...EMPTY_USER,
+        uid: cred.user.uid,
+        name: cred.user.displayName || cred.user.email?.split('@')[0] || 'User',
+        email: userEmail,
+        role: 'Finance AR Specialist',
+        department: 'Divisi Finance & Collection Enterprise Telkom',
+        division: 'ERS' as PengelolaanType,
+        avatarUrl: cred.user.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${cred.user.uid}`,
+        isLoggedIn: true,
+        authProvider: 'firebase' as const,
+        microsoftConnected: Boolean(localStorage.getItem(STORAGE_KEYS.microsoftToken)),
+        microsoftAccessToken: localStorage.getItem(STORAGE_KEYS.microsoftToken) || undefined
+      };
+
+      setUser(nextUser);
+      setPengelolaan(nextUser.division || 'ERS');
       setIsLoginModalOpen(false);
-      return { success: true, message: `Selamat datang ${data.user.name}! Ruang kerja Divisi ${userDivision} Anda aktif.` };
+      return { success: true, message: `Selamat datang ${nextUser.name}!` };
     } catch (err: any) {
-      return { success: false, message: err.message || 'Terjadi gangguan jaringan saat login.' };
+      return { success: false, message: err.message || 'Terjadi gangguan saat login.' };
     }
   };
 
@@ -471,66 +394,28 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   ): Promise<{ success: boolean; message: string }> => {
     try {
       const selectedDivision = division || 'ERS';
-      // 1. Register with JWT backend API (with Rate Limiting)
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email.trim(),
-          password: pass,
-          name: name.trim(),
-          role: role?.trim(),
-          department: dept?.trim(),
-          division: selectedDivision
-        })
-      });
+      const cred = await createUserWithEmailAndPassword(auth, email.trim(), pass);
+      await updateProfile(cred.user, { displayName: name.trim() });
+      await syncUserProfile(cred.user, { role, department: dept });
 
-      const data = await res.json();
-
-      if (res.status === 429) {
-        return { 
-          success: false, 
-          message: data.message || 'Batas pendaftaran tercapai (Rate Limit). Silakan coba lagi beberapa saat.' 
-        };
-      }
-
-      if (!res.ok || !data.success) {
-        return { success: false, message: data.message || 'Gagal mendaftar akun baru.' };
-      }
-
-      const jwtToken = data.token;
-      if (jwtToken) {
-        localStorage.setItem('telkom_jwt_token', jwtToken);
-      }
-
-      // 2. Also register in Firebase Auth
-      try {
-        const cred = await createUserWithEmailAndPassword(auth, email.trim(), pass);
-        if (name) {
-          await updateProfile(cred.user, { displayName: name });
-        }
-        await syncUserProfile(cred.user, { role, department: dept });
-      } catch (fbErr) {
-        // Continue with JWT auth
-      }
-
-      setUser(prev => ({
-        ...prev,
-        uid: data.user.id || prev.uid,
-        name: data.user.name || name || email.split('@')[0],
-        email: data.user.email || email,
-        role: data.user.role || role || prev.role,
-        department: data.user.department || dept || prev.department,
+      const nextUser = {
+        ...EMPTY_USER,
+        uid: cred.user.uid,
+        name: name.trim(),
+        email: cred.user.email?.toLowerCase() || email.trim().toLowerCase(),
+        role: role?.trim() || 'Finance AR Specialist',
+        department: dept?.trim() || 'Divisi Finance & Collection Enterprise Telkom',
         division: selectedDivision,
-        avatarUrl: data.user.avatarUrl || prev.avatarUrl,
-        jwtToken: jwtToken,
+        avatarUrl: cred.user.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${cred.user.uid}`,
         isLoggedIn: true,
-        authProvider: 'jwt'
-      }));
+        authProvider: 'firebase'
+      };
+
+      setUser(nextUser);
 
       setPengelolaan(selectedDivision);
       setIsLoginModalOpen(false);
-      return { success: true, message: `Akun baru Divisi ${selectedDivision} berhasil didaftarkan!` };
+      return { success: true, message: `Akun baru berhasil didaftarkan!` };
     } catch (err: any) {
       return { success: false, message: err.message || 'Terjadi gangguan jaringan saat registrasi.' };
     }
@@ -539,105 +424,32 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Firebase / Google Direct OAuth Sign In
   const loginWithGooglePopup = async (googleEmail?: string, googleName?: string, chosenDivision?: PengelolaanType): Promise<{ success: boolean; message: string }> => {
     try {
-      let email = googleEmail?.trim().toLowerCase();
-      let displayName = googleName?.trim();
-      let photoURL = '';
-      let uid = '';
-
-      // If no direct email passed, attempt Firebase popup authentication
-      if (!email) {
-        try {
-          const cred = await signInWithPopup(auth, googleProvider);
-          if (cred.user) {
-            email = cred.user.email?.toLowerCase() || '';
-            displayName = cred.user.displayName || '';
-            photoURL = cred.user.photoURL || '';
-            uid = cred.user.uid;
-            await syncUserProfile(cred.user);
-          }
-        } catch (popupErr: any) {
-          console.warn('[Firebase Google Auth Warning]:', popupErr);
-          // If popup is blocked, unauthorized domain, or internal error in iframe sandbox
-          // Return a structured error response that allows direct Google Sign-In
-          if (!email) {
-            return {
-              success: false,
-              message: 'POPUP_FALLBACK_REQUIRED'
-            };
-          }
-        }
-      }
-
-      if (!email) {
-        return { success: false, message: 'Silakan pilih atau masukkan email Google Anda.' };
-      }
-
       const activeDivision = chosenDivision || 'ERS';
+      const cred = await signInWithPopup(auth, googleProvider);
+      const fbUser = cred.user;
+      await syncUserProfile(fbUser, { role: 'Finance AR Specialist', department: 'Divisi Finance & Collection Enterprise Telkom' });
 
-      // Call backend Google Auth endpoint for JWT session
-      const res = await fetch('/api/auth/google', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email, 
-          name: displayName,
-          photoURL,
-          division: activeDivision
-        })
-      });
-      
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        return { success: false, message: data.message || 'Gagal masuk dengan akun Google.' };
-      }
+      const email = fbUser.email?.toLowerCase() || googleEmail?.trim().toLowerCase() || '';
+      const displayName = fbUser.displayName || googleName?.trim() || email.split('@')[0] || 'User';
+      const photoURL = fbUser.photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${fbUser.uid}`;
 
-      const jwtToken = data.token;
-      if (jwtToken) {
-        localStorage.setItem('telkom_jwt_token', jwtToken);
-      }
-
-      const resolvedDivision = (data.user?.division || activeDivision) as PengelolaanType;
-
-      setUser(prev => ({
-        ...prev,
-        uid: uid || data.user?.id || `google-${Date.now()}`,
-        name: data.user?.name || displayName || email!.split('@')[0],
-        email: data.user?.email || email!,
-        role: data.user?.role || 'Finance AR Specialist',
-        department: data.user?.department || 'Divisi Finance & Collection Enterprise Telkom',
-        division: resolvedDivision,
-        avatarUrl: data.user?.avatarUrl || photoURL || `https://api.dicebear.com/7.x/bottts/svg?seed=${email}`,
-        jwtToken: jwtToken || prev.jwtToken,
+      const nextUser = {
+        ...EMPTY_USER,
+        uid: fbUser.uid,
+        name: displayName,
+        email,
+        role: 'Finance AR Specialist',
+        department: 'Divisi Finance & Collection Enterprise Telkom',
+        division: activeDivision,
+        avatarUrl: photoURL,
         isLoggedIn: true,
-        authProvider: 'google'
-      }));
-
-      // Load user-isolated data if saved
-      const savedUserItems = localStorage.getItem(`telkom_data_${email}_open_items`);
-      if (savedUserItems) {
-        try {
-          const parsed = JSON.parse(savedUserItems);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setOpenItems(parsed);
-            syncAocFromOpenItems(parsed);
-          }
-        } catch (e) {}
-      }
-
-      const savedUserLink = localStorage.getItem(`telkom_data_${email}_sharepoint_link`);
-      if (savedUserLink) {
-        setSharePointConfig(prev => ({
-          ...prev,
-          shareLink: savedUserLink
-        }));
-      }
-
-      setPengelolaan(resolvedDivision);
-      setIsLoginModalOpen(false);
-      return { 
-        success: true, 
-        message: `Selamat datang, ${data.user?.name || email}! Berhasil masuk dengan Akun Google (Divisi ${resolvedDivision}).` 
+        authProvider: 'firebase'
       };
+
+      setUser(nextUser);
+      setPengelolaan(activeDivision);
+      setIsLoginModalOpen(false);
+      return { success: true, message: `Selamat datang, ${displayName}!` };
     } catch (err: any) {
       console.warn('Google login error:', err);
       return { success: false, message: err.message || 'Gagal menghubungkan akun Google.' };
@@ -648,29 +460,12 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       setUser(prev => {
         const next = { ...prev, ...updates };
-        localStorage.setItem('telkom_user_account', JSON.stringify(next));
+        localStorage.setItem(STORAGE_KEYS.userAccount, JSON.stringify(next));
         return next;
       });
 
       if (updates.division) {
         setPengelolaan(updates.division);
-      }
-
-      if (updates.email || updates.name || updates.role || updates.department || updates.division) {
-        const email = (updates.email || user.email || '').trim().toLowerCase();
-        if (email) {
-          await fetch('/api/auth/profile', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email,
-              name: updates.name ?? user.name,
-              role: updates.role ?? user.role,
-              department: updates.department ?? user.department,
-              division: updates.division ?? user.division
-            })
-          });
-        }
       }
 
       return { success: true, message: 'Profil berhasil diperbarui.' };
@@ -698,8 +493,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       // continue
     }
 
-    localStorage.removeItem('telkom_jwt_token');
-    localStorage.removeItem('telkom_ms_token');
+    localStorage.removeItem(STORAGE_KEYS.jwtToken);
+    localStorage.removeItem(STORAGE_KEYS.microsoftToken);
     
     setUser(prev => ({
       ...prev,
@@ -872,7 +667,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         if (event.data?.type === 'MS_AUTH_SUCCESS') {
           const accessToken = event.data.accessToken;
           if (accessToken) {
-            localStorage.setItem('telkom_ms_token', accessToken);
+            localStorage.setItem(STORAGE_KEYS.microsoftToken, accessToken);
             
             // Verify and retrieve Microsoft Profile info
             try {
@@ -954,7 +749,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const verifyData = await verifyRes.json();
 
       if (verifyRes.ok && verifyData.success) {
-        localStorage.setItem('telkom_ms_token', cleanToken);
+        localStorage.setItem(STORAGE_KEYS.microsoftToken, cleanToken);
         setUser(prev => ({
           ...prev,
           name: verifyData.user?.name || prev.name,
@@ -979,7 +774,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           message: `Akun Microsoft ${verifyData.user?.name || ''} (${verifyData.user?.email || ''}) berhasil terhubung!` 
         };
       } else {
-        localStorage.setItem('telkom_ms_token', cleanToken);
+        localStorage.setItem(STORAGE_KEYS.microsoftToken, cleanToken);
         setUser(prev => ({
           ...prev,
           microsoftConnected: true,
@@ -1006,7 +801,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const logoutMicrosoft = () => {
-    localStorage.removeItem('telkom_ms_token');
+    localStorage.removeItem(STORAGE_KEYS.microsoftToken);
     setUser(prev => ({
       ...prev,
       microsoftConnected: false,
@@ -1060,8 +855,8 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const clearAllData = () => {
     setOpenItems([]);
     setAocFollowUps(EMPTY_AOC_FOLLOWUPS);
-    localStorage.removeItem('telkom_ar_open_items');
-    localStorage.removeItem('telkom_aoc_followups');
+    localStorage.removeItem(STORAGE_KEYS.openItems);
+    localStorage.removeItem(STORAGE_KEYS.aocFollowUps);
     setLastUpdatedText('Data Dikosongkan');
     setSharePointConfig(prev => ({
       ...prev,
